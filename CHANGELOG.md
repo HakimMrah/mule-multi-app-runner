@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Launch progress also shown in the status bar (spinner + step), so it stays visible when notification toasts are hidden. Command **Mule: Show Multi-App Runner Log**.
+
 ## 0.6.0
 
 - Progress notification during a launch: preparing, starting the runtime, N/M deployed, then a confirmation (or the apps that failed). Cancel it to stop the launch. Setting `muleMultiApp.showProgress`.

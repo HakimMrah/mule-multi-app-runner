@@ -274,6 +274,9 @@ test('progress: follows a launch from preparing to "2 Mule apps deployed"', asyn
   assert.deepEqual(run.messages, ['Preparing and building (Maven)…', 'Starting the Mule runtime…', '1/2 deployed', '2/2 deployed']);
   assert.equal(run.finished, true);
   assert.match(mock.calls.statusMessages.pop(), /2 Mule apps deployed/);
+  const bar = mock.statusItems.find((i) => i.texts.some((t) => t.startsWith('$(sync~spin)')));
+  assert.deepEqual(bar.texts, ['$(sync~spin) Mule: Preparing and building (Maven)…', '$(sync~spin) Mule: Starting the Mule runtime…', '$(sync~spin) Mule: 1/2 deployed', '$(sync~spin) Mule: 2/2 deployed']);
+  assert.equal(bar.disposed, true);
 });
 
 test('progress: a failed app ends with an error; old log lines are ignored', async () => {

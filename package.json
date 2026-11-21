@@ -2,7 +2,7 @@
   "name": "multi-app-runner-mule",
   "displayName": "Multi-App Runner for Mule",
   "description": "Run or debug several Mule apps together in one shared runtime with Anypoint Code Builder: pick them in the Run and Debug list, no launch configuration to write.",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "hmrah",
   "author": "Hakim MRAH",
   "license": "MIT",
@@ -57,6 +57,11 @@
       {
         "command": "muleMultiApp.runSelected",
         "title": "Run Some Open Mule Apps...",
+        "category": "Mule"
+      },
+      {
+        "command": "muleMultiApp.showLog",
+        "title": "Show Multi-App Runner Log",
         "category": "Mule"
       },
       {
@@ -119,7 +124,7 @@
         "muleMultiApp.showProgress": {
           "type": "boolean",
           "default": true,
-          "description": "Show a progress notification during a launch (preparing, starting the runtime, N/M deployed) until every app is deployed or failed."
+          "description": "Show launch progress (preparing, starting the runtime, N/M deployed) in a notification and in the status bar, until every app is deployed or failed."
         },
         "muleMultiApp.exclude": {
           "type": "array",

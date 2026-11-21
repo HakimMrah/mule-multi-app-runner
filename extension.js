@@ -45,6 +45,7 @@ function activate(context) {
     vscode.commands.registerCommand('muleMultiApp.debugSelected', () => pickAndStart(false)),
     vscode.commands.registerCommand('muleMultiApp.runSelected', () => pickAndStart(true)),
     vscode.commands.registerCommand('muleMultiApp.removeEntries', removeEntries),
+    vscode.commands.registerCommand('muleMultiApp.showLog', () => output.show(true)),
     // Explorer right-click on workspace folders
     vscode.commands.registerCommand('muleMultiApp.debugFolders', (uri, uris) => startFolders(foldersFromSelection(uri, uris), false)),
     vscode.commands.registerCommand('muleMultiApp.runFolders', (uri, uris) => startFolders(foldersFromSelection(uri, uris), true)),
@@ -399,9 +400,17 @@ function trackDeployment(session) {
   let logOffset = progressLib.logSize(muleHome);
   let logText = '';
   const noun = `Mule app${total > 1 ? 's' : ''}`;
+  const title = `${cfg.noDebug ? 'Running' : 'Debugging'} ${total} ${noun}`;
+  log(`  progress: watching ${path.join(muleHome, 'apps')}`);
+
+  // Always-visible status bar indicator, independent of notification toasts.
+  const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1000);
+  bar.command = 'muleMultiApp.showLog';
+  bar.tooltip = `${title} — click to show the Multi-App Runner log`;
+  bar.show();
 
   vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: `${cfg.noDebug ? 'Running' : 'Debugging'} ${total} ${noun}`, cancellable: true },
+    { location: vscode.ProgressLocation.Notification, title, cancellable: true },
     (progress, token) =>
       new Promise((resolve) => {
         let lastMessage;
@@ -409,6 +418,7 @@ function trackDeployment(session) {
         const done = (after) => {
           clearInterval(timer);
           ended.dispose();
+          bar.dispose();
           resolve();
           if (after) after();
         };
@@ -423,6 +433,8 @@ function trackDeployment(session) {
           const message = progressLib.describe(state, total);
           if (message !== lastMessage) {
             progress.report({ message });
+            bar.text = `$(sync~spin) Mule: ${message}`;
+            log(`  progress: ${message}`);
             lastMessage = message;
           }
           if (state.deployed.length + state.failed.length >= total) {

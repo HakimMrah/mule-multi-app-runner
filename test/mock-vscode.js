@@ -14,6 +14,7 @@ function folder(fsPath, index) {
 function createMockVscode({ folders = [], workspaceFile = '/tmp/test.code-workspace', defaultArgs = ['-M-Dmule.env=loc'], launchConfigurations = [] } = {}) {
   const listeners = { folders: [], config: [], sessionStart: [], sessionEnd: [] };
   const progressRuns = [];
+  const statusItems = [];
   const settings = {};
   const store = { configurations: launchConfigurations };
   const workspaceState = {};
@@ -29,7 +30,12 @@ function createMockVscode({ folders = [], workspaceFile = '/tmp/test.code-worksp
     ConfigurationTarget: { Global: 1, Workspace: 2 },
     window: {
       createOutputChannel: () => ({ appendLine() {}, show() {} }),
-      createStatusBarItem: () => ({ show() { this.visible = true; }, hide() { this.visible = false; } }),
+      createStatusBarItem: () => {
+        const item = { texts: [], show() { this.visible = true; }, hide() { this.visible = false; }, dispose() { this.disposed = true; },
+          set text(v) { this.texts.push(v); }, get text() { return this.texts[this.texts.length - 1]; } };
+        statusItems.push(item);
+        return item;
+      },
       showWarningMessage: async (message, options, ...buttons) => {
         calls.warnings.push(message);
         return warningAnswer(message, buttons);
@@ -137,6 +143,7 @@ function createMockVscode({ folders = [], workspaceFile = '/tmp/test.code-worksp
       warningAnswer = fn;
     },
     progressRuns,
+    statusItems,
     /** Simulate Anypoint Code Builder starting a debug session with this resolved configuration. */
     startSession(configuration) {
       const session = { type: 'mule-xml-debugger', configuration };

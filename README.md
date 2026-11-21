@@ -69,6 +69,6 @@ The entries appear when 2 or more Mule apps are open. For a single project, use 
 ## Development
 
 ```bash
-npm test          # 21 tests, no dependencies
+npm test          # 23 tests, no dependencies
 npm run package   # builds the .vsix
 ```

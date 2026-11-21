@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2
+
+- Progress starts at the click ("Preparing (Anypoint Code Builder)…"), not when Code Builder starts the debug session up to a minute later. Warning if the session never starts.
+
 ## 0.6.1
 
 - Launch progress also shown in the status bar (spinner + step), so it stays visible when notification toasts are hidden. Command **Mule: Show Multi-App Runner Log**.

@@ -232,6 +232,7 @@ test('Explorer right-click starts only the selected folders', async () => {
 // ---------------------------------------------------------------- launch progress
 
 process.env.MULE_MULTI_APP_POLL_MS = '20';
+process.env.MULE_MULTI_APP_PENDING_MS = '300';
 const progressLib = require('../lib/progress');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -271,12 +272,37 @@ test('progress: follows a launch from preparing to "2 Mule apps deployed"', asyn
   await wait(60);
   const run = mock.progressRuns[0];
   assert.equal(run.options.title, 'Debugging 2 Mule apps');
-  assert.deepEqual(run.messages, ['Preparing and building (Maven)…', 'Starting the Mule runtime…', '1/2 deployed', '2/2 deployed']);
+  assert.deepEqual(run.messages, ['Preparing (Anypoint Code Builder)…', 'Preparing and building (Maven)…', 'Starting the Mule runtime…', '1/2 deployed', '2/2 deployed']);
   assert.equal(run.finished, true);
   assert.match(mock.calls.statusMessages.pop(), /2 Mule apps deployed/);
   const bar = mock.statusItems.find((i) => i.texts.some((t) => t.startsWith('$(sync~spin)')));
-  assert.deepEqual(bar.texts, ['$(sync~spin) Mule: Preparing and building (Maven)…', '$(sync~spin) Mule: Starting the Mule runtime…', '$(sync~spin) Mule: 1/2 deployed', '$(sync~spin) Mule: 2/2 deployed']);
+  assert.deepEqual(bar.texts, ['$(sync~spin) Mule: Preparing (Anypoint Code Builder)…', '$(sync~spin) Mule: Preparing and building (Maven)…', '$(sync~spin) Mule: Starting the Mule runtime…', '$(sync~spin) Mule: 1/2 deployed', '$(sync~spin) Mule: 2/2 deployed']);
   assert.equal(bar.disposed, true);
+});
+
+test('progress starts at the click, before Code Builder starts the session', async () => {
+  const mock = await boot({ folders: apps.slice(0, 2) });
+  const home = fakeMuleHome('click');
+  const resolved = await mock.provider().resolveDebugConfiguration(undefined, entry(mock.store, 'Debug all open Mule apps'));
+  assert.ok(resolved);
+  assert.equal(mock.progressRuns.length, 1);
+  assert.deepEqual(mock.progressRuns[0].messages, ['Preparing (Anypoint Code Builder)…']);
+  await wait(100); // Code Builder still preparing: nothing else happens
+  mock.startSession({ ...resolved, 'mule.home': home });
+  touch(home, 'sys-a-anchor.txt');
+  touch(home, 'prc-b-anchor.txt');
+  await wait(60);
+  assert.equal(mock.progressRuns.length, 1, 'the session reuses the progress started at the click');
+  assert.equal(mock.progressRuns[0].finished, true);
+  assert.equal(mock.progressRuns[0].messages.at(-1), '2/2 deployed');
+});
+
+test('progress closes with a warning when Code Builder never starts the session', async () => {
+  const mock = await boot({ folders: apps.slice(0, 2) });
+  await mock.provider().resolveDebugConfiguration(undefined, entry(mock.store, 'Run all open Mule apps'));
+  await wait(400);
+  assert.equal(mock.progressRuns[0].finished, true);
+  assert.match(mock.calls.warnings.pop(), /did not start the launch/);
 });
 
 test('progress: a failed app ends with an error; old log lines are ignored', async () => {

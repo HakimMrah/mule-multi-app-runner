@@ -189,6 +189,7 @@ const dynamicProvider = {
 
     if (!(await preflight())) return undefined;
     applyProjects(config, folders, !!config.noDebug);
+    beginLaunch({ total: folders.length, noDebug: !!config.noDebug });
     return config;
   },
 };
@@ -374,8 +375,10 @@ async function startFolders(folders, noDebug) {
 
   // A single project needs its workspace folder so ACB resolves runtime/JDK from its own properties.
   const folderArg = folders.length === 1 ? folders[0] : undefined;
+  const launch = beginLaunch({ total: folders.length, noDebug });
   const started = await vscode.debug.startDebugging(folderArg, config);
   if (!started) {
+    if (launch) launch.abort();
     log('  ACB refused to start the session (see notifications and the "Mule DX Server" output).');
     output.show(true);
   }
@@ -383,27 +386,24 @@ async function startFolders(folders, noDebug) {
 
 // ---------------------------------------------------------------- launch progress
 
+// Launches started by this extension that Anypoint Code Builder has not turned into a
+// debug session yet (it prepares for up to a minute before starting the session).
+const pendingLaunches = [];
+const PENDING_TIMEOUT_MS = Number(process.env.MULE_MULTI_APP_PENDING_MS) || 3 * 60 * 1000;
+const PREPARING = 'Preparing (Anypoint Code Builder)…';
+
 /**
- * Notification that follows a launch until every app is deployed (or failed), because
- * Anypoint Code Builder shows nothing for about a minute before Maven starts.
- * Only for launches from this extension. Cancelling it stops the session.
+ * Progress shown from the click until every app is deployed (or failed): a notification plus an
+ * always-visible status bar indicator. It waits for Code Builder to start the session, then reads
+ * the runtime folder. Cancelling it stops the launch. Returns undefined when progress is turned off.
  */
-function trackDeployment(session) {
-  const cfg = session.configuration || {};
-  if (!entryMode(cfg) && !cfg[PROGRESS_FLAG]) return;
-  if (!settings().get('showProgress', true)) return;
-  const muleHome = cfg['mule.home'];
-  const total = (cfg['mule.projects'] || []).length;
-  if (!muleHome || total === 0) return;
-
-  const since = Date.now();
-  let logOffset = progressLib.logSize(muleHome);
-  let logText = '';
+function beginLaunch({ total, noDebug }) {
+  if (!settings().get('showProgress', true) || total === 0) return undefined;
   const noun = `Mule app${total > 1 ? 's' : ''}`;
-  const title = `${cfg.noDebug ? 'Running' : 'Debugging'} ${total} ${noun}`;
-  log(`  progress: watching ${path.join(muleHome, 'apps')}`);
+  const title = `${noDebug ? 'Running' : 'Debugging'} ${total} ${noun}`;
+  const since = Date.now();
+  const launch = { total };
 
-  // Always-visible status bar indicator, independent of notification toasts.
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1000);
   bar.command = 'muleMultiApp.showLog';
   bar.tooltip = `${title} — click to show the Multi-App Runner log`;
@@ -415,28 +415,35 @@ function trackDeployment(session) {
       new Promise((resolve) => {
         let lastMessage;
         let timer;
+        let ended;
+        let muleHome;
+        let logOffset = 0;
+        let logText = '';
+
+        const report = (message) => {
+          if (message === lastMessage) return;
+          progress.report({ message });
+          bar.text = `$(sync~spin) Mule: ${message}`;
+          log(`  progress: ${message}`);
+          lastMessage = message;
+        };
         const done = (after) => {
           clearInterval(timer);
-          ended.dispose();
+          clearTimeout(waitTimer);
+          if (ended) ended.dispose();
           bar.dispose();
+          const i = pendingLaunches.indexOf(launch);
+          if (i >= 0) pendingLaunches.splice(i, 1);
           resolve();
           if (after) after();
         };
-        const ended = vscode.debug.onDidTerminateDebugSession((s) => s === session && done());
-        token.onCancellationRequested(() => done(() => vscode.debug.stopDebugging(session)));
 
         const poll = () => {
           const chunk = progressLib.readLogSince(muleHome, logOffset);
           logOffset = chunk.offset;
           logText += chunk.text;
           const state = progressLib.deploymentState(muleHome, since, logText);
-          const message = progressLib.describe(state, total);
-          if (message !== lastMessage) {
-            progress.report({ message });
-            bar.text = `$(sync~spin) Mule: ${message}`;
-            log(`  progress: ${message}`);
-            lastMessage = message;
-          }
+          report(progressLib.describe(state, total));
           if (state.deployed.length + state.failed.length >= total) {
             log(`  deployed: ${state.deployed.join(', ') || '-'}${state.failed.length ? ` | failed: ${state.failed.join(', ')}` : ''}`);
             done(() => {
@@ -447,13 +454,50 @@ function trackDeployment(session) {
               }
             });
           } else if (Date.now() - since > PROGRESS_TIMEOUT_MS) {
-            done(() => vscode.window.showWarningMessage(`Still not deployed after ${PROGRESS_TIMEOUT_MS / 60000} min (${message}). See the Mule terminal.`));
+            done(() => vscode.window.showWarningMessage(`Still not deployed after ${PROGRESS_TIMEOUT_MS / 60000} min (${lastMessage}). See the Mule terminal.`));
           }
         };
-        timer = setInterval(poll, PROGRESS_POLL_MS);
-        poll();
+
+        report(PREPARING);
+        const waitTimer = setTimeout(
+          () => done(() => vscode.window.showWarningMessage('Anypoint Code Builder did not start the launch. See the "Mule DX Server" output.')),
+          PENDING_TIMEOUT_MS
+        );
+        token.onCancellationRequested(() => done(() => launch.session && vscode.debug.stopDebugging(launch.session)));
+
+        // Called when Code Builder starts the debug session for this launch.
+        launch.attach = (session, home) => {
+          clearTimeout(waitTimer);
+          launch.session = session;
+          muleHome = home;
+          logOffset = progressLib.logSize(home);
+          log(`  progress: session started, watching ${path.join(home, 'apps')}`);
+          ended = vscode.debug.onDidTerminateDebugSession((s) => s === session && done());
+          timer = setInterval(poll, PROGRESS_POLL_MS);
+          poll();
+        };
+        launch.abort = () => done();
       })
   );
+
+  pendingLaunches.push(launch);
+  return launch;
+}
+
+/** A Mule debug session started: hand it to the launch waiting for it (ours only). */
+function trackDeployment(session) {
+  const cfg = session.configuration || {};
+  if (!entryMode(cfg) && !cfg[PROGRESS_FLAG]) return;
+  const muleHome = cfg['mule.home'];
+  const total = (cfg['mule.projects'] || []).length;
+  const launch = pendingLaunches.shift() || beginLaunch({ total, noDebug: !!cfg.noDebug });
+  if (!launch) return;
+  if (!muleHome) {
+    log('  progress: no mule.home in the session, cannot follow the deployment');
+    launch.abort();
+    return;
+  }
+  launch.attach(session, muleHome);
 }
 
 module.exports = { activate, deactivate };

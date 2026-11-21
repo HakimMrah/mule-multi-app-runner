@@ -1,4 +1,4 @@
-# Multi-App Runner for Mule
+# Mule Multi-App Runner
 
 Run or debug **several Mule applications together, in one shared runtime**, with Anypoint Code Builder.
 Open your projects in one VS Code window, pick them in the Run and Debug list, press `F5`. No launch configuration to write.

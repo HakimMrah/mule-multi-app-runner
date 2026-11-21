@@ -32,7 +32,7 @@ const muleSessions = new Set();
 
 function activate(context) {
   extContext = context;
-  output = vscode.window.createOutputChannel('Multi-App Runner for Mule');
+  output = vscode.window.createOutputChannel('Mule Multi-App Runner');
   statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
   statusItem.command = 'muleMultiApp.debug';
 

@@ -1,6 +1,6 @@
 {
   "name": "mule-multi-app-runner",
-  "displayName": "Multi-App Runner for Mule",
+  "displayName": "Mule Multi-App Runner",
   "description": "Run or debug several Mule apps together in one shared runtime with Anypoint Code Builder: pick them in the Run and Debug list, no launch configuration to write.",
   "version": "0.6.3",
   "publisher": "hmrah",
@@ -114,7 +114,7 @@
       }
     ],
     "configuration": {
-      "title": "Multi-App Runner for Mule",
+      "title": "Mule Multi-App Runner",
       "properties": {
         "muleMultiApp.showStatusBar": {
           "type": "boolean",

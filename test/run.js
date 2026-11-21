@@ -229,6 +229,94 @@ test('Explorer right-click starts only the selected folders', async () => {
   assert.equal(s.config['mule.runtime.version'], undefined); // single app: ACB uses the project's own runtime
 });
 
+// ---------------------------------------------------------------- launch progress
+
+process.env.MULE_MULTI_APP_POLL_MS = '20';
+const progressLib = require('../lib/progress');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Fake runtime folder: apps/ and logs/mule_ee.log with some old content. */
+function fakeMuleHome(name) {
+  const home = path.join(root, 'runtime', name);
+  write(path.join(home, 'logs', 'mule_ee.log'), 'old log line\nFailed to deploy artifact [old-app]\n');
+  fs.mkdirSync(path.join(home, 'apps'), { recursive: true });
+  return home;
+}
+const touch = (home, file) => write(path.join(home, 'apps', file), '');
+const appendLog = (home, text) => fs.appendFileSync(path.join(home, 'logs', 'mule_ee.log'), text);
+
+test('progress lib: jar copied, anchors and failures since the launch', () => {
+  const home = fakeMuleHome('lib');
+  const since = Date.now();
+  assert.equal(progressLib.describe(progressLib.deploymentState(home, since), 2), 'Preparing and building (Maven)…');
+  touch(home, 'a-1.0.0-mule-application.jar');
+  assert.equal(progressLib.describe(progressLib.deploymentState(home, since), 2), 'Starting the Mule runtime…');
+  touch(home, 'a-1.0.0-mule-application-anchor.txt');
+  const s = progressLib.deploymentState(home, since, 'x\nFailed to deploy artifact [b-1.0.0-mule-application]\n');
+  assert.deepEqual(s.deployed, ['a-1.0.0-mule-application']);
+  assert.deepEqual(s.failed, ['b-1.0.0-mule-application']);
+  assert.equal(progressLib.describe(s, 2), '1/2 deployed, 1 failed');
+});
+
+test('progress: follows a launch from preparing to "2 Mule apps deployed"', async () => {
+  const mock = await boot({ folders: apps.slice(0, 2) });
+  const home = fakeMuleHome('ok');
+  mock.startSession({ muleMultiApp: 'all', 'mule.home': home, 'mule.projects': apps.slice(0, 2) });
+  await wait(60);
+  touch(home, 'sys-a.jar');
+  await wait(60);
+  touch(home, 'sys-a-anchor.txt');
+  await wait(60);
+  touch(home, 'prc-b-anchor.txt');
+  await wait(60);
+  const run = mock.progressRuns[0];
+  assert.equal(run.options.title, 'Debugging 2 Mule apps');
+  assert.deepEqual(run.messages, ['Preparing and building (Maven)…', 'Starting the Mule runtime…', '1/2 deployed', '2/2 deployed']);
+  assert.equal(run.finished, true);
+  assert.match(mock.calls.statusMessages.pop(), /2 Mule apps deployed/);
+});
+
+test('progress: a failed app ends with an error; old log lines are ignored', async () => {
+  const mock = await boot({ folders: apps.slice(0, 2) });
+  const home = fakeMuleHome('fail');
+  mock.startSession({ muleMultiApp: 'select', noDebug: true, 'mule.home': home, 'mule.projects': apps.slice(0, 2) });
+  await wait(60);
+  assert.equal(mock.progressRuns[0].finished, false); // "[old-app]" written before the launch
+  touch(home, 'sys-a-anchor.txt');
+  appendLog(home, 'ERROR Failed to deploy artifact [prc-b-1.0.0-mule-application]\n');
+  await wait(80);
+  assert.equal(mock.progressRuns[0].options.title, 'Running 2 Mule apps');
+  assert.equal(mock.progressRuns[0].finished, true);
+  assert.match(mock.calls.errors.pop(), /Failed to deploy: prc-b-1.0.0-mule-application/);
+});
+
+test('progress: none for ACB\'s own sessions; cancel stops ours; stop ends it quietly', async () => {
+  const mock = await boot({ folders: apps.slice(0, 2) });
+  mock.startSession({ name: 'Debug Mule Application', 'mule.home': fakeMuleHome('acb'), 'mule.projects': [apps[0]] });
+  assert.equal(mock.progressRuns.length, 0);
+
+  const s1 = mock.startSession({ muleMultiAppProgress: true, 'mule.home': fakeMuleHome('cancel'), 'mule.projects': [apps[0]] });
+  await wait(40);
+  mock.progressRuns[0].cancel();
+  await wait(20);
+  assert.equal(mock.progressRuns[0].finished, true);
+  assert.equal(mock.calls.stopped[0], s1);
+
+  const s2 = mock.startSession({ muleMultiApp: 'all', 'mule.home': fakeMuleHome('stop'), 'mule.projects': apps.slice(0, 2) });
+  await wait(40);
+  mock.endSession(s2);
+  await wait(20);
+  assert.equal(mock.progressRuns[1].finished, true);
+  assert.equal(mock.calls.errors.length + mock.calls.warnings.length, 0);
+});
+
+test('progress: off when muleMultiApp.showProgress is false', async () => {
+  const mock = await boot({ folders: apps.slice(0, 2) });
+  mock.settings.showProgress = false;
+  mock.startSession({ muleMultiApp: 'all', 'mule.home': fakeMuleHome('off'), 'mule.projects': apps.slice(0, 2) });
+  assert.equal(mock.progressRuns.length, 0);
+});
+
 // ---------------------------------------------------------------- run
 
 (async () => {

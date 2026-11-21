@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0
+
+- Progress notification during a launch: preparing, starting the runtime, N/M deployed, then a confirmation (or the apps that failed). Cancel it to stop the launch. Setting `muleMultiApp.showProgress`.
+
 ## 0.5.0
 
 - Renamed to **Multi-App Runner for Mule** (was "ACB Debug All"). Settings and commands now use the `muleMultiApp.*` prefix.

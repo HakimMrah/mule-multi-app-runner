@@ -40,6 +40,7 @@ The entries appear when 2 or more Mule apps are open. For a single project, use 
 - Picks the runtime from `app.runtime` (project pom, else its parent pom in the local Maven repository). Code Builder maps it to the installed runtime with the same major.minor (e.g. 4.9.1 → 4.9.15).
 - Uses your **Mule › Runtime: Default Arguments** for every app.
 - Asks for confirmation when those arguments contain `mule.env=prd`, or when a Mule app is already running.
+- Shows a progress notification until every app is deployed: Code Builder prepares for about a minute before Maven starts, with nothing on screen. Cancelling it stops the launch.
 
 **Where the entries are written**
 
@@ -52,6 +53,7 @@ The entries appear when 2 or more Mule apps are open. For a single project, use 
 | Setting | Default | Purpose |
 |---|---|---|
 | `muleMultiApp.addToRunAndDebugList` | `true` | Write the entries at the top of the Run and Debug list. Off = nothing written, entries under `Mule Xml Debugger…` |
+| `muleMultiApp.showProgress` | `true` | Progress notification during a launch |
 | `muleMultiApp.exclude` | `[]` | Folder names never started |
 | `muleMultiApp.runtimeVersion` | empty | Force a runtime, e.g. `4.9.15` |
 | `muleMultiApp.jdkVersion` | `17` | JDK major version |
@@ -67,6 +69,6 @@ The entries appear when 2 or more Mule apps are open. For a single project, use 
 ## Development
 
 ```bash
-npm test          # 16 tests, no dependencies
+npm test          # 21 tests, no dependencies
 npm run package   # builds the .vsix
 ```

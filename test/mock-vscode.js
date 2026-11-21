@@ -12,17 +12,19 @@ function folder(fsPath, index) {
 }
 
 function createMockVscode({ folders = [], workspaceFile = '/tmp/test.code-workspace', defaultArgs = ['-M-Dmule.env=loc'], launchConfigurations = [] } = {}) {
-  const listeners = { folders: [], config: [] };
+  const listeners = { folders: [], config: [], sessionStart: [], sessionEnd: [] };
+  const progressRuns = [];
   const settings = {};
   const store = { configurations: launchConfigurations };
   const workspaceState = {};
-  const calls = { started: [], warnings: [], infos: [], errors: [], writes: 0, quickPicks: [] };
+  const calls = { started: [], stopped: [], warnings: [], infos: [], errors: [], statusMessages: [], writes: 0, quickPicks: [] };
   let provider;
   let quickPickAnswer = () => undefined;
   let warningAnswer = (message, buttons) => buttons[0];
 
   const vscode = {
     StatusBarAlignment: { Left: 1 },
+    ProgressLocation: { Notification: 15 },
     DebugConfigurationProviderTriggerKind: { Initial: 1, Dynamic: 2 },
     ConfigurationTarget: { Global: 1, Workspace: 2 },
     window: {
@@ -34,6 +36,16 @@ function createMockVscode({ folders = [], workspaceFile = '/tmp/test.code-worksp
       },
       showInformationMessage: (message) => calls.infos.push(message),
       showErrorMessage: (message) => calls.errors.push(message),
+      setStatusBarMessage: (message) => calls.statusMessages.push(message),
+      withProgress: (options, task) => {
+        const run = { options, messages: [], finished: false, cancel: null };
+        const token = { onCancellationRequested: (fn) => { run.cancel = fn; } };
+        run.promise = Promise.resolve(task({ report: ({ message }) => run.messages.push(message) }, token)).then(() => {
+          run.finished = true;
+        });
+        progressRuns.push(run);
+        return run.promise;
+      },
       showQuickPick: async (items, options) => {
         calls.quickPicks.push({ items, options, preTicked: items.filter((i) => i.picked).map((i) => i.label) });
         return quickPickAnswer(items);
@@ -51,13 +63,21 @@ function createMockVscode({ folders = [], workspaceFile = '/tmp/test.code-worksp
         provider = p;
         return { dispose() {} };
       },
-      onDidStartDebugSession: () => ({ dispose() {} }),
-      onDidTerminateDebugSession: () => ({ dispose() {} }),
+      onDidStartDebugSession: (fn) => {
+        listeners.sessionStart.push(fn);
+        return { dispose() {} };
+      },
+      onDidTerminateDebugSession: (fn) => {
+        listeners.sessionEnd.push(fn);
+        return { dispose: () => { listeners.sessionEnd = listeners.sessionEnd.filter((f) => f !== fn); } };
+      },
       startDebugging: async (f, config) => {
         calls.started.push({ folder: f && f.name, config });
         return true;
       },
-      stopDebugging: async () => {},
+      stopDebugging: async (session) => {
+        calls.stopped.push(session);
+      },
     },
     workspace: {
       workspaceFile: workspaceFile ? uri(workspaceFile) : undefined,
@@ -115,6 +135,16 @@ function createMockVscode({ folders = [], workspaceFile = '/tmp/test.code-worksp
     },
     answerWarning(fn) {
       warningAnswer = fn;
+    },
+    progressRuns,
+    /** Simulate Anypoint Code Builder starting a debug session with this resolved configuration. */
+    startSession(configuration) {
+      const session = { type: 'mule-xml-debugger', configuration };
+      listeners.sessionStart.forEach((fn) => fn(session));
+      return session;
+    },
+    endSession(session) {
+      [...listeners.sessionEnd].forEach((fn) => fn(session));
     },
   };
 }

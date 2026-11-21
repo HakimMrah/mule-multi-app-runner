@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.3
+
+- New icon: a play button made of three app slices.
+
 ## 0.6.2
 
 - Progress starts at the click ("Preparing (Anypoint Code Builder)…"), not when Code Builder starts the debug session up to a minute later. Warning if the session never starts.

@@ -1,9 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <rect width="256" height="256" rx="48" fill="#1B2B3A"/>
-  <!-- three app cards, stacked -->
-  <rect x="44" y="52" width="120" height="84" rx="14" fill="#2E6F9E"/>
-  <rect x="68" y="80" width="120" height="84" rx="14" fill="#3FA0D8"/>
-  <rect x="92" y="108" width="120" height="84" rx="14" fill="#7FD1FF"/>
-  <!-- play triangle on the front card -->
-  <path d="M138 128 L138 172 L176 150 Z" fill="#1B2B3A"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs>
+  <clipPath id="sq"><rect width="512" height="512" rx="116"/></clipPath>
+  <radialGradient id="sheen" cx="0.28" cy="0.18" r="0.9"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#020617" flood-opacity=".45"/></filter>
+  <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#020617" flood-opacity=".35"/></filter>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
+  <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#111827"/><stop offset="1" stop-color="#030712"/></linearGradient>
+  <radialGradient id="halo" cx=".52" cy=".5" r=".5"><stop offset="0" stop-color="#6366F1" stop-opacity=".55"/><stop offset="1" stop-color="#6366F1" stop-opacity="0"/></radialGradient>
+  <clipPath id="tri"><path d="M179.5,129.0 Q150,112 150.0,146.0 L150.0,366.0 Q150,400 179.5,383.0 L370.5,273.0 Q400,256 370.5,239.0 Z"/></clipPath>
+  <linearGradient id="b1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22D3EE"/><stop offset="1" stop-color="#38BDF8"/></linearGradient>
+  <linearGradient id="b2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#60A5FA"/><stop offset="1" stop-color="#818CF8"/></linearGradient>
+  <linearGradient id="b3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A78BFA"/><stop offset="1" stop-color="#E879F9"/></linearGradient>
+</defs>
+<g clip-path="url(#sq)">
+  <rect width="512" height="512" fill="url(#bg3)"/>
+  <circle cx="256" cy="256" r="240" fill="url(#halo)"/><g filter="url(#shadow)"><g clip-path="url(#tri)"><rect x="120" y="90" width="92" height="340" fill="url(#b1)"/><rect x="226" y="90" width="80" height="340" fill="url(#b2)"/><rect x="320" y="90" width="110" height="340" fill="url(#b3)"/></g></g>
+  <rect width="512" height="512" fill="url(#sheen)"/>
+</g>
+<rect x="1.5" y="1.5" width="509" height="509" rx="114.5" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="3"/>
 </svg>

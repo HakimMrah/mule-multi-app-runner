@@ -2,13 +2,13 @@
   "name": "multi-app-runner-mule",
   "displayName": "Multi-App Runner for Mule",
   "description": "Run or debug several Mule apps together in one shared runtime with Anypoint Code Builder: pick them in the Run and Debug list, no launch configuration to write.",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "publisher": "hmrah",
   "author": "Hakim MRAH",
   "license": "MIT",
   "icon": "images/icon.png",
   "galleryBanner": {
-    "color": "#1B2B3A",
+    "color": "#111827",
     "theme": "dark"
   },
   "keywords": [

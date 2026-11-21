@@ -7,10 +7,18 @@ const { isMuleProject, requiredRuntime, targetsProduction, muleEnv } = require('
 const DEBUG_TYPE = 'mule-xml-debugger';
 const DEFAULT_ARGS_PLACEHOLDER = '${config:mule.runtime.defaultArguments}';
 // Marks the configurations this extension puts in the Run and Debug list.
-const MARKER = 'acbDebugAll';
+const MARKER = 'muleMultiApp';
+// Marker written by versions up to 0.4.1 (named "ACB Debug All"): treated as ours and replaced.
+const LEGACY_MARKERS = ['acbDebugAll'];
+
+/** 'all' | 'select' for an entry written by this extension, undefined otherwise. */
+function entryMode(config) {
+  if (!config) return undefined;
+  return config[MARKER] || LEGACY_MARKERS.map((m) => config[m]).find(Boolean);
+}
 
 // Last apps ticked in "Debug selected Mule apps…", remembered per workspace.
-const SELECTION_KEY = 'acbDebugAll.lastSelection';
+const SELECTION_KEY = 'muleMultiApp.lastSelection';
 
 let output;
 let statusItem;
@@ -19,21 +27,22 @@ const muleSessions = new Set();
 
 function activate(context) {
   extContext = context;
-  output = vscode.window.createOutputChannel('ACB Debug All');
+  output = vscode.window.createOutputChannel('Multi-App Runner for Mule');
   statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
-  statusItem.command = 'acbDebugAll.debug';
+  statusItem.command = 'muleMultiApp.debug';
 
   context.subscriptions.push(
     output,
     statusItem,
     // Command palette / keybinding
-    vscode.commands.registerCommand('acbDebugAll.debug', () => startFolders(muleFolders(), false)),
-    vscode.commands.registerCommand('acbDebugAll.run', () => startFolders(muleFolders(), true)),
-    vscode.commands.registerCommand('acbDebugAll.debugSelected', () => pickAndStart(false)),
-    vscode.commands.registerCommand('acbDebugAll.runSelected', () => pickAndStart(true)),
+    vscode.commands.registerCommand('muleMultiApp.debug', () => startFolders(muleFolders(), false)),
+    vscode.commands.registerCommand('muleMultiApp.run', () => startFolders(muleFolders(), true)),
+    vscode.commands.registerCommand('muleMultiApp.debugSelected', () => pickAndStart(false)),
+    vscode.commands.registerCommand('muleMultiApp.runSelected', () => pickAndStart(true)),
+    vscode.commands.registerCommand('muleMultiApp.removeEntries', removeEntries),
     // Explorer right-click on workspace folders
-    vscode.commands.registerCommand('acbDebugAll.debugFolders', (uri, uris) => startFolders(foldersFromSelection(uri, uris), false)),
-    vscode.commands.registerCommand('acbDebugAll.runFolders', (uri, uris) => startFolders(foldersFromSelection(uri, uris), true)),
+    vscode.commands.registerCommand('muleMultiApp.debugFolders', (uri, uris) => startFolders(foldersFromSelection(uri, uris), false)),
+    vscode.commands.registerCommand('muleMultiApp.runFolders', (uri, uris) => startFolders(foldersFromSelection(uri, uris), true)),
     // Run and Debug list: dynamic entries (fallback when nothing is written to the workspace file)
     vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, dynamicProvider, vscode.DebugConfigurationProviderTriggerKind.Dynamic),
     vscode.debug.onDidStartDebugSession((s) => s.type === DEBUG_TYPE && muleSessions.add(s)),
@@ -43,7 +52,7 @@ function activate(context) {
       syncLaunchEntries();
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (!e.affectsConfiguration('acbDebugAll')) return;
+      if (!e.affectsConfiguration('muleMultiApp')) return;
       refreshStatus();
       syncLaunchEntries();
     })
@@ -96,19 +105,37 @@ function syncLaunchEntries() {
  * Only the workspace file is touched (.code-workspace or the untitled workspace), never a
  * project's .vscode/launch.json. Other entries are left as they are.
  */
-async function doSyncLaunchEntries() {
-  if (!vscode.workspace.workspaceFile) return; // single-folder window: nothing to write
+async function doSyncLaunchEntries({ forceRemove = false } = {}) {
+  if (!vscode.workspace.workspaceFile) return 0; // single-folder window: nothing to write
   const launch = vscode.workspace.getConfiguration('launch');
   const current = launch.inspect('configurations')?.workspaceValue || [];
-  const others = current.filter((c) => !(c && c[MARKER]));
+  const others = current.filter((c) => !entryMode(c));
   const folders = muleFolders();
-  const wanted = settings().get('addToRunAndDebugList', true) && folders.length >= 2 ? buildEntries(folders, false) : [];
+  const keep = !forceRemove && settings().get('addToRunAndDebugList', true) && folders.length >= 2;
+  const wanted = keep ? buildEntries(folders, false) : [];
   const next = [...wanted, ...others];
-  if (JSON.stringify(next) === JSON.stringify(current)) return;
+  if (JSON.stringify(next) === JSON.stringify(current)) return 0;
   await launch.update('configurations', next, vscode.ConfigurationTarget.Workspace);
   log(wanted.length
     ? `Run and Debug list updated: ${folders.map((f) => f.name).join(', ')}`
-    : 'Run and Debug entries removed (fewer than 2 Mule apps, or setting off)');
+    : 'Run and Debug entries removed');
+  return current.length - others.length;
+}
+
+/** Command: remove this extension's entries from the workspace file (e.g. before uninstalling). */
+async function removeEntries() {
+  if (!vscode.workspace.workspaceFile) {
+    vscode.window.showInformationMessage('Nothing to remove: entries are only written in multi-root workspaces.');
+    return;
+  }
+  const removed = await (syncQueue = syncQueue.then(() => doSyncLaunchEntries({ forceRemove: true })));
+  const off = settings().get('addToRunAndDebugList', true);
+  vscode.window.showInformationMessage(
+    removed
+      ? `${removed} Run and Debug entr${removed > 1 ? 'ies' : 'y'} removed from this workspace.` +
+          (off ? ' They come back when folders change: turn off "Add To Run And Debug List" to keep them away.' : '')
+      : 'No Run and Debug entry from this extension in this workspace.'
+  );
 }
 
 // ---------------------------------------------------------------- Run and Debug list
@@ -133,10 +160,11 @@ const dynamicProvider = {
   // Called for every mule-xml-debugger launch: only our entries are touched.
   // The project list is rebuilt here so F5 always matches the folders open now.
   async resolveDebugConfiguration(_folder, config) {
-    if (!config || !config[MARKER]) return config;
+    const mode = entryMode(config);
+    if (!mode) return config;
     let folders = muleFolders();
 
-    if (config[MARKER] === 'select') {
+    if (mode === 'select') {
       folders = await pickFolders(!!config.noDebug);
       if (!folders) return undefined; // cancelled
       if (folders.length === 1) {
@@ -183,7 +211,7 @@ async function pickFolders(noDebug) {
 // ---------------------------------------------------------------- helpers
 
 function settings() {
-  return vscode.workspace.getConfiguration('acbDebugAll');
+  return vscode.workspace.getConfiguration('muleMultiApp');
 }
 
 function muleFolders() {

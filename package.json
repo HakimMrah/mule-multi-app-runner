@@ -1,10 +1,24 @@
 {
-  "name": "acb-debug-all",
-  "displayName": "ACB Debug All",
-  "description": "Run or debug several Mule apps open in VS Code in one shared Anypoint Code Builder runtime, from the Run and Debug list or the Explorer, without writing a launch configuration.",
-  "version": "0.4.1",
-  "publisher": "linkr",
-  "license": "UNLICENSED",
+  "name": "multi-app-runner-mule",
+  "displayName": "Multi-App Runner for Mule",
+  "description": "Run or debug several Mule apps together in one shared runtime with Anypoint Code Builder: pick them in the Run and Debug list, no launch configuration to write.",
+  "version": "0.5.0",
+  "publisher": "hmrah",
+  "author": "Hakim MRAH",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1B2B3A",
+    "theme": "dark"
+  },
+  "keywords": [
+    "mule",
+    "mulesoft",
+    "anypoint code builder",
+    "debug",
+    "multi-root",
+    "runtime"
+  ],
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -12,6 +26,10 @@
     "Debuggers"
   ],
   "main": "./extension.js",
+  "scripts": {
+    "test": "node test/run.js",
+    "package": "npx --yes @vscode/vsce package --allow-missing-repository"
+  },
   "activationEvents": [
     "onStartupFinished",
     "onDebugDynamicConfigurations:mule-xml-debugger",
@@ -20,35 +38,40 @@
   "contributes": {
     "commands": [
       {
-        "command": "acbDebugAll.debug",
+        "command": "muleMultiApp.debug",
         "title": "Debug All Open Mule Apps",
         "category": "Mule",
         "icon": "$(debug-alt)"
       },
       {
-        "command": "acbDebugAll.run",
+        "command": "muleMultiApp.run",
         "title": "Run All Open Mule Apps",
         "category": "Mule",
         "icon": "$(run-all)"
       },
       {
-        "command": "acbDebugAll.debugSelected",
+        "command": "muleMultiApp.debugSelected",
         "title": "Debug Some Open Mule Apps...",
         "category": "Mule"
       },
       {
-        "command": "acbDebugAll.runSelected",
+        "command": "muleMultiApp.runSelected",
         "title": "Run Some Open Mule Apps...",
         "category": "Mule"
       },
       {
-        "command": "acbDebugAll.debugFolders",
+        "command": "muleMultiApp.removeEntries",
+        "title": "Remove Multi-App Entries from Run and Debug",
+        "category": "Mule"
+      },
+      {
+        "command": "muleMultiApp.debugFolders",
         "title": "Debug Mule Apps Together",
         "category": "Mule",
         "icon": "$(debug-alt)"
       },
       {
-        "command": "acbDebugAll.runFolders",
+        "command": "muleMultiApp.runFolders",
         "title": "Run Mule Apps Together",
         "category": "Mule",
         "icon": "$(run-all)"
@@ -57,43 +80,43 @@
     "menus": {
       "explorer/context": [
         {
-          "command": "acbDebugAll.debugFolders",
+          "command": "muleMultiApp.debugFolders",
           "when": "explorerResourceIsRoot && workspaceFolderCount > 1",
           "group": "4_mule@1"
         },
         {
-          "command": "acbDebugAll.runFolders",
+          "command": "muleMultiApp.runFolders",
           "when": "explorerResourceIsRoot && workspaceFolderCount > 1",
           "group": "4_mule@2"
         }
       ],
       "commandPalette": [
         {
-          "command": "acbDebugAll.debugFolders",
+          "command": "muleMultiApp.debugFolders",
           "when": "false"
         },
         {
-          "command": "acbDebugAll.runFolders",
+          "command": "muleMultiApp.runFolders",
           "when": "false"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "acbDebugAll.debug",
+        "command": "muleMultiApp.debug",
         "key": "ctrl+alt+f5",
         "mac": "cmd+alt+f5"
       }
     ],
     "configuration": {
-      "title": "ACB Debug All",
+      "title": "Multi-App Runner for Mule",
       "properties": {
-        "acbDebugAll.showStatusBar": {
+        "muleMultiApp.showStatusBar": {
           "type": "boolean",
           "default": false,
           "description": "Show a \"Debug N Mule apps\" button in the status bar (when 2 or more Mule apps are open)."
         },
-        "acbDebugAll.exclude": {
+        "muleMultiApp.exclude": {
           "type": "array",
           "items": {
             "type": "string"
@@ -101,17 +124,17 @@
           "default": [],
           "description": "Workspace folder names never included in the shared runtime."
         },
-        "acbDebugAll.addToRunAndDebugList": {
+        "muleMultiApp.addToRunAndDebugList": {
           "type": "boolean",
           "default": true,
-          "description": "Write \"Debug all open Mule apps\" and \"Run all open Mule apps\" at the top of the Run and Debug list. They are stored in the workspace file (.code-workspace or untitled workspace), never in a project's .vscode/launch.json, and kept in sync with the open folders. Off = entries under \"Mule Xml Debugger...\" instead."
+          "description": "Write the \"Debug/Run all open Mule apps\" and \"Debug/Run selected Mule apps…\" entries at the top of the Run and Debug list. They are stored in the workspace file (.code-workspace or untitled workspace), never in a project's .vscode/launch.json, and kept in sync with the open folders. Off = entries under \"Mule Xml Debugger...\" instead."
         },
-        "acbDebugAll.runtimeVersion": {
+        "muleMultiApp.runtimeVersion": {
           "type": "string",
           "default": "",
           "description": "Force the Mule runtime version (e.g. 4.9.15). Empty = highest app.runtime found in the projects' poms (parent poms are read from the local Maven repository)."
         },
-        "acbDebugAll.jdkVersion": {
+        "muleMultiApp.jdkVersion": {
           "type": "string",
           "default": "17",
           "description": "JDK major version used with the shared runtime."

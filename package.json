@@ -1,0 +1,122 @@
+{
+  "name": "acb-debug-all",
+  "displayName": "ACB Debug All",
+  "description": "Run or debug several Mule apps open in VS Code in one shared Anypoint Code Builder runtime, from the Run and Debug list or the Explorer, without writing a launch configuration.",
+  "version": "0.4.1",
+  "publisher": "linkr",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Debuggers"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onDebugDynamicConfigurations:mule-xml-debugger",
+    "onDebugResolve:mule-xml-debugger"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "acbDebugAll.debug",
+        "title": "Debug All Open Mule Apps",
+        "category": "Mule",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "acbDebugAll.run",
+        "title": "Run All Open Mule Apps",
+        "category": "Mule",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "acbDebugAll.debugSelected",
+        "title": "Debug Some Open Mule Apps...",
+        "category": "Mule"
+      },
+      {
+        "command": "acbDebugAll.runSelected",
+        "title": "Run Some Open Mule Apps...",
+        "category": "Mule"
+      },
+      {
+        "command": "acbDebugAll.debugFolders",
+        "title": "Debug Mule Apps Together",
+        "category": "Mule",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "acbDebugAll.runFolders",
+        "title": "Run Mule Apps Together",
+        "category": "Mule",
+        "icon": "$(run-all)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "acbDebugAll.debugFolders",
+          "when": "explorerResourceIsRoot && workspaceFolderCount > 1",
+          "group": "4_mule@1"
+        },
+        {
+          "command": "acbDebugAll.runFolders",
+          "when": "explorerResourceIsRoot && workspaceFolderCount > 1",
+          "group": "4_mule@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "acbDebugAll.debugFolders",
+          "when": "false"
+        },
+        {
+          "command": "acbDebugAll.runFolders",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "acbDebugAll.debug",
+        "key": "ctrl+alt+f5",
+        "mac": "cmd+alt+f5"
+      }
+    ],
+    "configuration": {
+      "title": "ACB Debug All",
+      "properties": {
+        "acbDebugAll.showStatusBar": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show a \"Debug N Mule apps\" button in the status bar (when 2 or more Mule apps are open)."
+        },
+        "acbDebugAll.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Workspace folder names never included in the shared runtime."
+        },
+        "acbDebugAll.addToRunAndDebugList": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write \"Debug all open Mule apps\" and \"Run all open Mule apps\" at the top of the Run and Debug list. They are stored in the workspace file (.code-workspace or untitled workspace), never in a project's .vscode/launch.json, and kept in sync with the open folders. Off = entries under \"Mule Xml Debugger...\" instead."
+        },
+        "acbDebugAll.runtimeVersion": {
+          "type": "string",
+          "default": "",
+          "description": "Force the Mule runtime version (e.g. 4.9.15). Empty = highest app.runtime found in the projects' poms (parent poms are read from the local Maven repository)."
+        },
+        "acbDebugAll.jdkVersion": {
+          "type": "string",
+          "default": "17",
+          "description": "JDK major version used with the shared runtime."
+        }
+      }
+    }
+  }
+}

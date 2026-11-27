@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.4
+
+- Source code on GitHub: https://github.com/HakimMrah/mule-multi-app-runner
+
 ## 0.6.3
 
 - New icon: a play button made of three app slices.
